@@ -96,6 +96,26 @@ document 6
 ...     print result['name']
 document 5
 
+Docs can also boost any particular key. This lets us use Solr's boost on a field.
+
+>>> docs = [
+...     {'id': 'testdoc.7', 'order_i': '7', 'name': 'document 7', 'text': u'eight', 'author': 'seven'},
+...     {'id': 'testdoc.8', 'order_i': '8', 'name': 'document 8', 'text': u'seven', 'author': 'eight'},
+... ]
+
+>>> conn.add(docs, boost={'author': '2.0',})
+>>> results = conn.search('seven author:seven')
+>>> for result in results:
+...     print result['name']
+document 7
+document 8
+
+>>> results = conn.search('eight author:eight')
+>>> for result in results:
+...     print result['name']
+document 8
+document 7
+
 """
 
 # TODO: unicode support is pretty sloppy. define it better.
@@ -359,23 +379,29 @@ class Solr(object):
         
         return Results(result['response']['docs'], result['response']['numFound'])
 
-    def add(self, docs, commit=True):
-        """Adds or updates documents. For now, docs is a list of dictionaies
+    def add(self, docs, commit=True, boost=None):
+        """Adds or updates documents. For now, docs is a list of dictionaries
         where each key is the field name and each value is the value to index.
         """
         message = ET.Element('add')
         for doc in docs:
             d = ET.Element('doc')
             for key, value in doc.items():
-                # handle lists, tuples, and other iterabes
+                # handle lists, tuples, and other iterables
                 if hasattr(value, '__iter__'):
                     for v in value:
-                        f = ET.Element('field', name=key)
+                        if boost and v in boost:
+                            f = ET.Element('field', name=key, boost=boost[v])
+                        else:
+                            f = ET.Element('field', name=key)
                         f.text = self._from_python(v)
                         d.append(f)
                 # handle strings and unicode
                 else:
-                    f = ET.Element('field', name=key)
+                    if boost and key in boost:
+                        f = ET.Element('field', name=key, boost=boost[key])
+                    else:
+                        f = ET.Element('field', name=key)
                     f.text = self._from_python(value)
                     d.append(f)
             message.append(d)
