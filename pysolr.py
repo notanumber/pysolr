@@ -2,7 +2,7 @@
 """
 All we need to create a Solr connection is a url.
 
->>> conn = Solr('http://127.0.0.1:8983/solr/')
+>>> conn = Solr('http://127.0.0.1:9001/solr/test_default/')
 
 First, completely clear the index.
 
@@ -391,6 +391,8 @@ class Solr(object):
                 if hasattr(value, '__iter__'):
                     for v in value:
                         if boost and v in boost:
+                            if not isinstance(boost, str):
+                                boost[v] = str(boost[v])
                             f = ET.Element('field', name=key, boost=boost[v])
                         else:
                             f = ET.Element('field', name=key)
@@ -399,6 +401,8 @@ class Solr(object):
                 # handle strings and unicode
                 else:
                     if boost and key in boost:
+                        if not isinstance(boost, str):
+                            boost[key] = str(boost[key])
                         f = ET.Element('field', name=key, boost=boost[key])
                     else:
                         f = ET.Element('field', name=key)
