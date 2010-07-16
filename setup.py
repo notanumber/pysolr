@@ -2,10 +2,10 @@ from distutils.core import setup
 
 setup(
     name = "pysolr",
-    version = "2.0.10",
+    version = "2.0.13-beta",
     description = "Lightweight python wrapper for Apache Solr.",
-    author = 'Joseph Kocherhans',
-    author_email = 'jkocherhans@gmail.com',
+    author = 'Daniel Lindsley',
+    author_email = 'daniel@toastdriven.com',
     py_modules = ['pysolr'],
     classifiers = [
         'Development Status :: 5 - Production/Stable',
@@ -15,5 +15,5 @@ setup(
         'Programming Language :: Python',
         'Topic :: Internet :: WWW/HTTP :: Indexing/Search'
     ],
-    url = 'http://code.google.com/p/pysolr/'
+    url = 'http://github.com/toastdriven/pysolr/'
 )
