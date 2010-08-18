@@ -194,6 +194,32 @@ if False:
     LOG.addHandler(stream)
 
 
+
+def safe_urlencode(params, doseq=0):
+    """
+    UTF-8-safe version of safe_urlencode
+    
+    The stdlib safe_urlencode prior to Python 3.x chokes on UTF-8 values
+    which can't fail down to ascii.
+    """
+    if hasattr(params, "items"):
+        params = params.items()
+    
+    new_params = list()
+    
+    for k, v in params:
+        k = k.encode("utf-8")
+        
+        if isinstance(v, basestring):
+            new_params.append((k, v.encode("utf-8")))
+        elif isinstance(v, (list, tuple)):
+            new_params.append((k, [i.encode("utf-8") for i in v]))
+        else:
+            new_params.append((k, unicode(v)))
+    
+    return urllib.urlencode(new_params, doseq)
+
+
 class SolrError(Exception):
     pass
 
@@ -276,14 +302,12 @@ class Solr(object):
             return response.read()
 
     def _select(self, params):
-        # encode the query as utf-8 so urlencode can handle it
-        params['q'] = params['q'].encode('utf-8')
         # specify json encoding of results
         params['wt'] = 'json'
         
-        if len(params['q']) < 1024:
+        if sum([len(p) for p in params]) < 1024:
             # Typical case.
-            path = '%s/select/?%s' % (self.path, urllib.urlencode(params, True))
+            path = '%s/select/?%s' % (self.path, safe_urlencode(params, True))
             return self._send_request('GET', path)
         else:
             # Handles very long queries by submitting as a POST.
@@ -291,16 +315,19 @@ class Solr(object):
             headers = {
                 'Content-type': 'application/x-www-form-urlencoded; charset=utf-8',
             }
-            body = urllib.urlencode(params, False)
+            body = safe_urlencode(params, True)
             return self._send_request('POST', path, body=body, headers=headers)
     
     def _mlt(self, params):
-        # encode the query as utf-8 so urlencode can handle it
-        params['q'] = params['q'].encode('utf-8')
         params['wt'] = 'json' # specify json encoding of results
-        path = '%s/mlt/?%s' % (self.path, urllib.urlencode(params, True))
+        path = '%s/mlt/?%s' % (self.path, safe_urlencode(params, True))
         return self._send_request('GET', path)
-
+    
+    def _suggest_terms(self, params):
+        params['wt'] = 'json' # specify json encoding of results
+        path = '%s/terms/?%s' % (self.path, safe_urlencode(params, True))
+        return self._send_request('GET', path)
+    
     def _update(self, message, clean_ctrl_chars=True, commit=True):
         """
         Posts the given xml message to http://<host>:<port>/solr/update and
@@ -419,6 +446,8 @@ class Solr(object):
                 value = 'true'
             else:
                 value = 'false'
+        elif isinstance(value, str):
+            value = unicode(value, errors='replace')
         else:
             value = unicode(value)
         return value
@@ -524,7 +553,43 @@ class Solr(object):
         
         self.log.debug("Found '%s' MLT results." % result['response']['numFound'])
         return Results(result['response']['docs'], result['response']['numFound'])
+<<<<<<< HEAD
 
+=======
+    
+    def suggest_terms(self, fields, prefix, **kwargs):
+        """
+        Accepts a list of field names and a prefix
+        
+        Returns a dictionary keyed on field name containing a list of
+        ``(term, count)`` pairs
+        
+        Requires Solr 1.4+.
+        """
+        params = {
+            'terms.fl': fields,
+            'terms.prefix': prefix,
+        }
+        params.update(kwargs)
+        response = self._suggest_terms(params)
+        result = self.decoder.decode(response)
+        terms = result.get("terms", {})
+        res = {}
+        
+        while terms:
+            # The raw values are a flat list: ["dance",23,"dancers",10,"dancing",8,"dancer",6]]
+            field = terms.pop(0)
+            values = terms.pop(0)
+            tmp = list()
+            
+            while values:
+                tmp.append((values.pop(0), values.pop(0)))
+            
+            res[field] = tmp
+        
+        self.log.debug("Found '%d' Term suggestions results.", sum(len(j) for i, j in res.items()))
+        return res
+    
     def add(self, docs, commit=True, boost=None):
         """Adds or updates documents. For now, docs is a list of dictionaries
         where each key is the field name and each value is the value to index.
@@ -548,7 +613,7 @@ class Solr(object):
                             continue
                         
                         if boost and v in boost:
-                            if not isinstance(boost, str):
+                            if not isinstance(boost, basestring):
                                 boost[v] = str(boost[v])
                             f = ET.Element('field', name=key, boost=boost[v])
                         else:
@@ -562,7 +627,7 @@ class Solr(object):
                         continue
                     
                     if boost and key in boost:
-                        if not isinstance(boost, str):
+                        if not isinstance(boost, basestring):
                             boost[key] = str(boost[key])
                         f = ET.Element('field', name=key, boost=boost[key])
                     else:
@@ -616,7 +681,7 @@ class SolrCoreAdmin(object):
         self.url = url
     
     def _get_url(self, url, params={}, headers={}):
-        request = urllib2.Request(url, data=urllib.urlencode(params), headers=headers)
+        request = urllib2.Request(url, data=safe_urlencode(params), headers=headers)
         # Let ``socket.error``, ``urllib2.HTTPError`` and ``urllib2.URLError``
         # propagate up the stack.
         response = urllib2.urlopen(request)
