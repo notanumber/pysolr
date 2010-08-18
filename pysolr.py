@@ -553,9 +553,6 @@ class Solr(object):
         
         self.log.debug("Found '%s' MLT results." % result['response']['numFound'])
         return Results(result['response']['docs'], result['response']['numFound'])
-<<<<<<< HEAD
-
-=======
     
     def suggest_terms(self, fields, prefix, **kwargs):
         """
